@@ -66,6 +66,8 @@ tmux attach -t model_servers
 - The **server** loads the model with `trust_remote_code=True`, Flash Attention 2, and bfloat16, and serves actions over a length-prefixed socket (`deploy/server.py`).
 - The **client** sends observations via the `AutoProcessor` and decodes returned actions with `processor.decode_action(...)` (`deploy/client.py`).
 
+> **Security:** The deploy socket has **no authentication**. Anything that can reach the port can run inference (and historically could exploit the protocol). Bind to `localhost` (default) or expose only on a trusted network / behind an auth proxy. Client metadata keys like `task_id` and `seed` are **not** model inputs; they are used client-side only.
+
 The server must already be running before a client connects. See the benchmark evaluation guides for end-to-end examples of driving the server with a simulation client:
 
 - RoboCasa — [`eval_robocasa/README.md`](../eval_robocasa/README.md)
