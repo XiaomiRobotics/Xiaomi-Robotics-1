@@ -1,11 +1,12 @@
 # Copyright (C) 2026 Xiaomi Corporation.
-import pickle
+from io import BytesIO
 import socket
 import struct
 import time
 import argparse
 import traceback
 
+import numpy as np
 import torch
 from tqdm import tqdm
 from transformers import AutoModel
@@ -29,6 +30,30 @@ class Server:
             data += packet
         return data
 
+    def _recv(self, conn):
+        data_len_bytes = self._recv_all(conn, 4)
+        if not data_len_bytes:
+            return None
+        data_len = struct.unpack(">I", data_len_bytes)[0]
+        data = self._recv_all(conn, data_len)
+        if not data:
+            return None
+        # allow_pickle=False: never deserialize untrusted pickle over the socket.
+        with np.load(BytesIO(data), allow_pickle=False) as payload:
+            return {
+                key: payload[key].item() if payload[key].ndim == 0 else torch.from_numpy(payload[key].copy())
+                for key in payload.files
+            }
+
+    @staticmethod
+    def _send(conn, actions):
+        actions = actions.detach().cpu()
+        array = actions.float().numpy() if actions.dtype == torch.bfloat16 else actions.numpy()
+        buffer = BytesIO()
+        np.savez(buffer, actions=array)
+        data = buffer.getvalue()
+        conn.sendall(struct.pack(">I", len(data)) + data)
+
     def serve(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
             server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -43,25 +68,25 @@ class Server:
                     request_count = 0
                     with tqdm(desc="Processing Requests", unit=" req") as pbar:
                         while True:
-                            data_len_bytes = self._recv_all(conn, 4)
-                            if not data_len_bytes:
-                                break
-                            data_len = struct.unpack(">I", data_len_bytes)[0]
-
-                            data = self._recv_all(conn, data_len)
-                            if not data:
+                            input_data = self._recv(conn)
+                            if input_data is None:
                                 break
 
                             tic = time.time()
 
-                            input_data = pickle.loads(data)
-                            robot_type = input_data["task_id"]
-                            data = {key: (value.to(device=self.model.device, dtype=self.model.dtype) if isinstance(value, torch.Tensor) and value.is_floating_point() else value.to(device=self.model.device) if isinstance(value, torch.Tensor) else value) for key, value in input_data.items()}
+                            data = {
+                                key: (
+                                    value.to(device=self.model.device, dtype=self.model.dtype)
+                                    if isinstance(value, torch.Tensor) and value.is_floating_point()
+                                    else value.to(device=self.model.device)
+                                    if isinstance(value, torch.Tensor)
+                                    else value
+                                )
+                                for key, value in input_data.items()
+                            }
 
                             outputs = self.model(**data)
-
-                            response = pickle.dumps(outputs.actions.cpu())
-                            conn.sendall(struct.pack(">I", len(response)) + response)
+                            self._send(conn, outputs.actions)
 
                             toc = time.time()
                             request_count += 1
@@ -91,6 +116,7 @@ def parse_args():
         "--host",
         type=str,
         default="localhost",
+        help="Bind address. Prefer localhost; the wire protocol has no authentication.",
     )
     parser.add_argument(
         "--port",
