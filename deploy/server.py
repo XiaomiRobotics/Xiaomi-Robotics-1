@@ -11,6 +11,10 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModel
 
+# Reject absurd length-prefix values before allocating (DoS).
+MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
+MODEL_META_KEYS = frozenset({"task_id", "seed"})
+
 
 class Server:
     def __init__(self, model_path, host, port):
@@ -35,6 +39,8 @@ class Server:
         if not data_len_bytes:
             return None
         data_len = struct.unpack(">I", data_len_bytes)[0]
+        if data_len <= 0 or data_len > MAX_PAYLOAD_BYTES:
+            raise ValueError(f"payload length {data_len} outside allowed range (1..{MAX_PAYLOAD_BYTES})")
         data = self._recv_all(conn, data_len)
         if not data:
             return None
@@ -74,16 +80,19 @@ class Server:
 
                             tic = time.time()
 
-                            data = {
-                                key: (
-                                    value.to(device=self.model.device, dtype=self.model.dtype)
-                                    if isinstance(value, torch.Tensor) and value.is_floating_point()
-                                    else value.to(device=self.model.device)
-                                    if isinstance(value, torch.Tensor)
-                                    else value
-                                )
-                                for key, value in input_data.items()
-                            }
+                            # Keep wire meta out of the model call (clients send task_id/seed).
+                            data = {}
+                            for key, value in input_data.items():
+                                if key in MODEL_META_KEYS:
+                                    continue
+                                if isinstance(value, torch.Tensor):
+                                    if value.is_floating_point():
+                                        data[key] = value.to(device=self.model.device, dtype=self.model.dtype)
+                                    else:
+                                        data[key] = value.to(device=self.model.device)
+                                else:
+                                    # Non-tensor extras are not model inputs on this wire format.
+                                    continue
 
                             outputs = self.model(**data)
                             self._send(conn, outputs.actions)

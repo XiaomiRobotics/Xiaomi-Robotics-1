@@ -14,6 +14,8 @@ from transformers import AutoProcessor
 
 torch.set_printoptions(3, sci_mode=False)
 
+MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
+
 
 class Client:
     def __init__(self, host="localhost", port=10086, model_path=None):
@@ -62,6 +64,8 @@ class Client:
     def _recv_with_length_prefix(self):
         len_data = self._recv_all(4)
         data_len = struct.unpack(">I", len_data)[0]
+        if data_len <= 0 or data_len > MAX_PAYLOAD_BYTES:
+            raise ValueError(f"payload length {data_len} outside allowed range (1..{MAX_PAYLOAD_BYTES})")
         data = self._recv_all(data_len)
         with np.load(BytesIO(data), allow_pickle=False) as payload:
             return torch.from_numpy(payload["actions"].copy())
