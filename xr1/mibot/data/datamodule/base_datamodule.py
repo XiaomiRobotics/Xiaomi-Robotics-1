@@ -1,11 +1,10 @@
 # Copyright (C) 2026 Xiaomi Corporation.
+import os
 from copy import deepcopy
 
+import torch
 from lightning import LightningDataModule
 from mmengine import Config, DATASETS
-import os
-
-import torch
 from torch.utils.data import DataLoader, DistributedSampler
 
 from mibot.data.collate.custom_collate import CustomCollate
