@@ -11,6 +11,8 @@ from transformers import AutoProcessor
 
 from mibot.utils.io import compose_state, recover_action, resize_image, split_action
 
+MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
+
 
 class Client:
     def __init__(self, host: str = "localhost", port: int = 10086) -> None:
@@ -43,6 +45,8 @@ class Client:
 
     def _recv(self):
         size = struct.unpack(">I", self._recv_all(self.socket, 4))[0]
+        if size <= 0 or size > MAX_PAYLOAD_BYTES:
+            raise ValueError(f"payload length {size} outside allowed range (1..{MAX_PAYLOAD_BYTES})")
         with np.load(BytesIO(self._recv_all(self.socket, size)), allow_pickle=False) as payload:
             return torch.from_numpy(payload["action"].copy())
 

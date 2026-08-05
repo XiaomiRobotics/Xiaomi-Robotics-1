@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import os
 from os.path import join as osp
 
 import torch
@@ -17,8 +18,27 @@ def strip_prefix(state_dict, prefix):
     return {key[len(prefix) :]: value for key, value in state_dict.items() if key.startswith(prefix)}
 
 
+def load_config(model_dir):
+    """Prefer config.yaml (data) over config.py (executable) when both exist.
+
+    Training dumps both formats. Loading config.py via mmengine executes it as
+    Python, which is unsafe for untrusted model directories.
+    """
+    yaml_path = osp(model_dir, "config.yaml")
+    py_path = osp(model_dir, "config.py")
+    if os.path.isfile(yaml_path):
+        return Config.fromfile(yaml_path)
+    if os.path.isfile(py_path):
+        print(
+            "Warning: loading executable config.py because config.yaml is missing. "
+            "Only use model directories you trust."
+        )
+        return Config.fromfile(py_path)
+    raise FileNotFoundError(f"neither config.yaml nor config.py found in {model_dir}")
+
+
 def load_model(model_dir, device):
-    cfg = Config.fromfile(osp(model_dir, "config.py"))
+    cfg = load_config(model_dir)
     model = MIMODEL.build(cfg.model.params.model).to(torch.bfloat16)
     ckpt = torch.load(
         osp(model_dir, "last.ckpt/checkpoint", "mp_rank_00_model_states.pt"),
@@ -47,7 +67,7 @@ def load_stats(cfg, device):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True, help="Path to the model dir.")
-    parser.add_argument("--host", type=str, default="0.0.0.0")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address. Default is loopback; the socket has no authentication.")
     parser.add_argument("--port", type=int, default=10086)
     return parser.parse_args()
 
