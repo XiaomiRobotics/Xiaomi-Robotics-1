@@ -30,7 +30,7 @@ class BaseDataModule(LightningDataModule):
             self.setup("fit")
         generator = torch.Generator()
         generator.manual_seed(
-            int(os.environ.get("RANK", 0)) + int(self.params.get("seed", 42))
+            int(os.environ.get("RANK", 0)) + int(self.params.trainer.get("seed", 42))
         )
         sampler = DistributedSampler(self.train_set, shuffle=True, seed=42)
         return DataLoader(
