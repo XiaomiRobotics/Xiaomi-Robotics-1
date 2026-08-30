@@ -109,6 +109,20 @@ class Client:
         )[None]
         if action_prefix is not None:
             action_prefix = np.asarray(action_prefix, dtype=np.float32)
+            if action_prefix.ndim != 2:
+                raise ValueError(
+                    f"action_prefix must be a 2D array of shape (N, 60), got {action_prefix.shape}"
+                )
+            if action_prefix.shape[1] != 60:
+                raise ValueError(
+                    f"action_prefix columns must be 60, got {action_prefix.shape[1]}"
+                )
+            if len(action_prefix) > 30:
+                raise ValueError(
+                    f"action_prefix length {len(action_prefix)} exceeds action_length 30"
+                )
+            if not np.isfinite(action_prefix).all():
+                raise ValueError("action_prefix must contain only finite values")
             action = np.zeros((30, 60), dtype=np.float32)
             action[: len(action_prefix)] = action_prefix
             payload["action"] = torch.from_numpy(action)[None]
