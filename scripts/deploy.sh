@@ -27,6 +27,8 @@ fi
 tmux kill-session -t $SESSION_NAME 2>/dev/null
 # Create new session
 tmux new-session -d -s $SESSION_NAME
+# The first window is not necessarily index 0: tmux honours base-index from the user's config.
+FIRST_WINDOW=$(tmux list-windows -t $SESSION_NAME -F '#{window_index}' | head -n 1)
 
 # Function to set up environment in a pane
 setup_environment() {
@@ -43,7 +45,7 @@ for ((i=0; i<NUM_PORTS; i++)); do
     if [ $i -eq 0 ]; then
         # Use the first window (already created)
         WINDOW_NAME="server-$(printf "%02d" $i)"
-        tmux rename-window -t $SESSION_NAME:0 $WINDOW_NAME
+        tmux rename-window -t $SESSION_NAME:$FIRST_WINDOW $WINDOW_NAME
         setup_environment "$SESSION_NAME:$WINDOW_NAME"
         tmux send-keys -t $SESSION_NAME:$WINDOW_NAME "CUDA_VISIBLE_DEVICES=$GPU_ID python -u deploy/server.py --model '$MODEL_PATH' --port $PORT" Enter
     else
