@@ -11,6 +11,9 @@ NUM_PORTS=$2
 NUM_GPUS=$3
 BASE_PORT=10086
 SESSION_NAME="model_servers"
+# tmux panes inherit the tmux *server's* environment, not this shell's, so a bare `python3`
+# resolves outside whatever env the caller activated. Pin the launching interpreter by path.
+PYTHON="${PYTHON:-$(command -v python3)}"
 
 if ! [[ "$NUM_PORTS" =~ ^[1-9][0-9]*$ ]] || ! [[ "$NUM_GPUS" =~ ^[1-9][0-9]*$ ]]; then
     echo "number_of_ports and number_of_gpus must be positive integers"
@@ -33,7 +36,7 @@ for ((i=0; i<NUM_PORTS; i++)); do
         tmux new-window -d -t "$SESSION_NAME" -n "$WINDOW_NAME"
     fi
     tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" \
-        "TOKENIZERS_PARALLELISM=false CUDA_VISIBLE_DEVICES=$GPU_ID python3 mibot/server/deploy.py --model '$MODEL_PATH' --port $PORT" Enter
+        "TOKENIZERS_PARALLELISM=false CUDA_VISIBLE_DEVICES=$GPU_ID '$PYTHON' mibot/server/deploy.py --model '$MODEL_PATH' --port $PORT" Enter
 done
 
 echo "Started $NUM_PORTS server(s) on ports $BASE_PORT-$((BASE_PORT + NUM_PORTS - 1))"
