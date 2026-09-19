@@ -2,7 +2,7 @@
 import math
 import os
 import time
-import pickle
+from io import BytesIO
 import socket
 import struct
 
@@ -13,6 +13,8 @@ from PIL import Image
 from transformers import AutoProcessor
 
 torch.set_printoptions(3, sci_mode=False)
+
+MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
 
 
 class Client:
@@ -38,21 +40,35 @@ class Client:
                     raise ConnectionError(f"Failed to connect to {self.host}:{self.port} after {retry_count} retries: {e}") from e
 
     def _send_with_length_prefix(self, data):
-        serialized = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
+        arrays = {}
+        for key, value in data.items():
+            if isinstance(value, torch.Tensor):
+                value = value.detach().cpu()
+                arrays[key] = value.float().numpy() if value.dtype == torch.bfloat16 else value.numpy()
+            else:
+                arrays[key] = np.asarray(value)
+        buffer = BytesIO()
+        np.savez(buffer, **arrays)
+        serialized = buffer.getvalue()
         self.client_socket.sendall(struct.pack(">I", len(serialized)) + serialized)
 
-    def _recv_with_length_prefix(self):
-        len_data = self.client_socket.recv(4)
-        if not len_data or len(len_data) < 4:
-            raise ConnectionError("Failed to receive response length prefix.")
-        data_len = struct.unpack(">I", len_data)[0]
+    def _recv_all(self, length):
         data = b""
-        while len(data) < data_len:
-            packet = self.client_socket.recv(data_len - len(data))
+        while len(data) < length:
+            packet = self.client_socket.recv(length - len(data))
             if not packet:
                 raise ConnectionError("Connection closed while receiving response.")
             data += packet
-        return pickle.loads(data)
+        return data
+
+    def _recv_with_length_prefix(self):
+        len_data = self._recv_all(4)
+        data_len = struct.unpack(">I", len_data)[0]
+        if data_len <= 0 or data_len > MAX_PAYLOAD_BYTES:
+            raise ValueError(f"payload length {data_len} outside allowed range (1..{MAX_PAYLOAD_BYTES})")
+        data = self._recv_all(data_len)
+        with np.load(BytesIO(data), allow_pickle=False) as payload:
+            return torch.from_numpy(payload["actions"].copy())
 
     def __call__(self, **data):
         robot_type = data.get("task_id")

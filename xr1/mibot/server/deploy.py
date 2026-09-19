@@ -47,7 +47,7 @@ def load_stats(cfg, device):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, required=True, help="Path to the model dir.")
-    parser.add_argument("--host", type=str, default="0.0.0.0")
+    parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind address. Default is loopback; the socket has no authentication.")
     parser.add_argument("--port", type=int, default=10086)
     return parser.parse_args()
 

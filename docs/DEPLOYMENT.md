@@ -65,6 +65,8 @@ tmux attach -t model_servers
 
 - The **server** loads the model with `trust_remote_code=True`, Flash Attention 2, and bfloat16, and serves actions over a length-prefixed socket (`deploy/server.py`).
 - The **client** sends observations via the `AutoProcessor` and decodes returned actions with `processor.decode_action(...)` (`deploy/client.py`).
+- The wire protocol uses NumPy `.npz` archives with `allow_pickle=False` (not `pickle`). Keep the server on a trusted network / loopback — there is still no authentication on the socket.
+- Payloads are capped at 128 MiB to prevent length-prefix memory exhaustion. `task_id` / `seed` are treated as client meta and are not forwarded into the model call.
 
 The server must already be running before a client connects. See the benchmark evaluation guides for end-to-end examples of driving the server with a simulation client:
 
