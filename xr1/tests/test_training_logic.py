@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from mibot.data.datasets.json_dataset import JsonDataset
-from mibot.models.VLA.xr1 import xr1
+from mibot.models.VLA.XR1 import xr1
 
 
 def test_flow_loss_with_empty_mask_is_finite():
