@@ -22,13 +22,15 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
     exit 1
 fi
 tmux new-session -d -s "$SESSION_NAME"
+# The first window is not necessarily index 0: tmux honours base-index from the user's config.
+FIRST_WINDOW=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_index}' | head -n 1)
 
 for ((i=0; i<NUM_PORTS; i++)); do
     PORT=$((BASE_PORT + i))
     GPU_ID=$((i % NUM_GPUS))
     WINDOW_NAME="server-$(printf "%02d" "$i")"
     if [ "$i" -eq 0 ]; then
-        tmux rename-window -t "$SESSION_NAME:0" "$WINDOW_NAME"
+        tmux rename-window -t "$SESSION_NAME:$FIRST_WINDOW" "$WINDOW_NAME"
     else
         tmux new-window -d -t "$SESSION_NAME" -n "$WINDOW_NAME"
     fi
