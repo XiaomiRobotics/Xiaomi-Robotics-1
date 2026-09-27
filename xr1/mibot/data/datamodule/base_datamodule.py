@@ -1,6 +1,8 @@
 # Copyright (C) 2026 Xiaomi Corporation.
+import os
 from copy import deepcopy
 
+import torch
 from lightning import LightningDataModule
 from mmengine import Config, DATASETS
 from torch.utils.data import DataLoader, DistributedSampler
@@ -25,6 +27,10 @@ class BaseDataModule(LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         if self.train_set is None:
             self.setup("fit")
+        generator = torch.Generator()
+        generator.manual_seed(
+            int(os.environ.get("RANK", 0)) + int(self.params.trainer.get("seed", 42))
+        )
         sampler = DistributedSampler(self.train_set, shuffle=True, seed=42)
         return DataLoader(
             self.train_set,
@@ -35,4 +41,18 @@ class BaseDataModule(LightningDataModule):
             collate_fn=self.collate_fn,
             persistent_workers=True,
             pin_memory=True,
+            worker_init_fn=_seed_worker,
+            generator=generator,
         )
+
+
+def _seed_worker(worker_id: int) -> None:
+    """Seed each dataloader worker deterministically for reproducibility."""
+    worker_seed = (torch.initial_seed() + worker_id) % 2**32
+    import random
+
+    random.seed(worker_seed)
+    import numpy as np
+
+    np.random.seed(worker_seed)
+    torch.manual_seed(worker_seed)
