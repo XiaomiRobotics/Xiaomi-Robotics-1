@@ -7,10 +7,14 @@ from transformers import AutoModel
 
 
 def convert(model_path, output_dir, output_filename):
+    attn_implementation = "flash_attention_2"
+    if not torch.cuda.is_available() and torch.xpu.is_available():
+        # Intel XPU: flash-attn is CUDA-only, so use PyTorch SDPA.
+        attn_implementation = "sdpa"
     model = AutoModel.from_pretrained(
         model_path,
         trust_remote_code=True,
-        attn_implementation="flash_attention_2",
+        attn_implementation=attn_implementation,
         dtype=torch.bfloat16,
     ).cpu()
     state_dict = {f"model.{name}": tensor for name, tensor in model.state_dict().items()}

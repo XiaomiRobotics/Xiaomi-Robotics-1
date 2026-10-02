@@ -17,6 +17,11 @@ class Server:
         self.port = port
 
         print("Loading model...")
+        if not torch.cuda.is_available() and torch.xpu.is_available():
+            # Intel XPU: flash-attn is CUDA-only, so use PyTorch SDPA.
+            self.model = AutoModel.from_pretrained(model_path, trust_remote_code=True, attn_implementation="sdpa", dtype=torch.bfloat16).to("xpu").to(torch.bfloat16)
+            print("Model loaded on xpu.")
+            return
         self.model = AutoModel.from_pretrained(model_path, trust_remote_code=True, attn_implementation="flash_attention_2", dtype=torch.bfloat16).cuda().to(torch.bfloat16)
         print("Model loaded.")
 

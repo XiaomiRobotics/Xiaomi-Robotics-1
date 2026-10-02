@@ -33,6 +33,8 @@ setup_environment() {
     local target=$1
     tmux send-keys -t $target "export TOKENIZERS_PARALLELISM=false" Enter
     tmux send-keys -t $target "conda activate mibot" Enter
+    # Intel XPU GPU pinning; ignored by CUDA builds of PyTorch.
+    tmux send-keys -t $target "export ONEAPI_DEVICE_SELECTOR=level_zero:$GPU_ID" Enter
 }
 
 # Start servers, creating new windows as needed

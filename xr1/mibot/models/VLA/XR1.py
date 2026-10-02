@@ -218,9 +218,13 @@ class xr1(nn.Module):
 
     def _build_model(self):
         config = Qwen3VLConfig.from_pretrained("Qwen/Qwen3-VL-4B-Instruct")
+        attn_implementation = "flash_attention_2"
+        if not torch.cuda.is_available() and torch.xpu.is_available():
+            # Intel XPU: flash-attn is CUDA-only, so use PyTorch SDPA.
+            attn_implementation = "sdpa"
         self.vlm = Qwen3VLForConditionalGeneration._from_config(
             config,
-            attn_implementation="flash_attention_2",
+            attn_implementation=attn_implementation,
             dtype=torch.bfloat16,
         ).train()
         self.vlm.model.get_input_embeddings().requires_grad_(False)

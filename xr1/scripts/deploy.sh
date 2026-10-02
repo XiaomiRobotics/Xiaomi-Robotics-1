@@ -32,6 +32,8 @@ for ((i=0; i<NUM_PORTS; i++)); do
     else
         tmux new-window -d -t "$SESSION_NAME" -n "$WINDOW_NAME"
     fi
+    # Intel XPU GPU pinning; ignored by CUDA builds of PyTorch.
+    tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" "export ONEAPI_DEVICE_SELECTOR=level_zero:$GPU_ID" Enter
     tmux send-keys -t "$SESSION_NAME:$WINDOW_NAME" \
         "TOKENIZERS_PARALLELISM=false CUDA_VISIBLE_DEVICES=$GPU_ID python3 mibot/server/deploy.py --model '$MODEL_PATH' --port $PORT" Enter
 done

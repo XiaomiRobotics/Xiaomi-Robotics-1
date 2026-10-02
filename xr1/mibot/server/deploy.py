@@ -55,6 +55,8 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     device = "cuda:0"
+    if not torch.cuda.is_available() and torch.xpu.is_available():
+        device = "xpu:0"
     cfg, model = load_model(args.model, device)
     mean, std, q01, q99, action_mask = load_stats(cfg, device)
 

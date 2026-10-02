@@ -88,6 +88,8 @@ Each cell shows success rate, higher is better. XR-1 = Xiaomi-Robotics-1.
 
 Want to fine-tune XR-1 on your own data? The post-training and deployment code is available in [`xr1/`](xr1/). See **[`xr1/README.md`](xr1/README.md)** for details on environment setup, checkpoint conversion, data formats, training, and deployment.
 
+> **Intel GPUs (XPU)** are supported for inference, deployment, and checkpoint conversion; see **[`docs/CUDA_XPU_GUIDE.md`](docs/CUDA_XPU_GUIDE.md)** for setup. Post-training (DeepSpeed) is currently validated on CUDA; XPU post-training is tracked as a follow-up.
+
 For discussions, scan the QR code below to join our WeChat group.
 
 <img src="xr1/assets/wechat_group.jpg" alt="Post-training reproduction WeChat group QR code" width="220">

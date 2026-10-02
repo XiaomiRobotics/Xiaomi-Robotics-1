@@ -6,6 +6,8 @@ XR-1 is deployed on top of the HuggingFace Transformers 🤗 ecosystem, enabling
 
 **transformers** must be exactly `4.57.1` — other versions are unverified. We recommend **PyTorch 2.8.0** (paired with torchvision 0.23.0 and torchaudio 2.8.0), as this combination has been fully tested by our team and ensures optimal compatibility.
 
+> **Intel GPUs (XPU)** are also supported; see [`docs/CUDA_XPU_GUIDE.md`](CUDA_XPU_GUIDE.md).
+
 ---
 
 ## 1️⃣ Installation Guides
