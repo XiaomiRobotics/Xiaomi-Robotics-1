@@ -12,6 +12,8 @@ from tqdm import tqdm
 
 from mibot.utils.io import ACTION_EPS, denormalize_action
 
+MAX_PAYLOAD_BYTES = 128 * 1024 * 1024
+
 
 class Server:
     def __init__(self, host: str, port: int, model, mean, std, q01, q99, action_mask, device: str) -> None:
@@ -40,6 +42,8 @@ class Server:
         if not head:
             return None
         size = struct.unpack(">I", head)[0]
+        if size <= 0 or size > MAX_PAYLOAD_BYTES:
+            raise ValueError(f"payload length {size} outside allowed range (1..{MAX_PAYLOAD_BYTES})")
         body = self._recv_all(conn, size)
         if body is None:
             return None
